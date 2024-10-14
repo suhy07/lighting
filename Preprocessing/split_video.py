@@ -1,10 +1,11 @@
 import cv2
 import os
 
+filename = '1.mp4'
 # 视频文件路径
-video_path = 'C:\\b站剪辑视频\\202410121426.mp4'
+video_path = f'../Video/{filename}'
 # 图片保存路径
-image_folder = 'C:\\b站剪辑视频\\image'
+image_folder = '../Output'
 
 # 确保图片保存路径存在
 if not os.path.exists(image_folder):
@@ -13,19 +14,19 @@ if not os.path.exists(image_folder):
 # 打开视频文件
 cap = cv2.VideoCapture(video_path)
 if not cap.isOpened():
-    print("Error: Could not open video.")
+    print("Error: Could not open Video.")
     exit()
 
 # 获取视频总帧数
 total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-print(f"Total frames in video: {total_frames}")
+print(f"Total frames in Video: {total_frames}")
 
 # 读取视频帧并保存为图片
 frame_id = 0
 while True:
     ret, frame = cap.read()
     if not ret:
-        print("Reached end of video or failed to read frame.")
+        print("Reached end of Video or failed to read frame.")
         break
     # 构建图片文件名
     image_name = os.path.join(image_folder, f'frame_{frame_id:04d}.jpg')

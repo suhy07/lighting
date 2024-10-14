@@ -1,3 +1,8 @@
+from lab.lighting.DQN.DQNAgent import DQNAgent
+from lab.lighting.DQN.GameEvirenment import GameEnvironment
+from lab.lighting.DQN.Training import Training
+
+
 def main():
     # 创建游戏环境实例
     env = GameEnvironment()

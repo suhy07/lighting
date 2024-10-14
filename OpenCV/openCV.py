@@ -4,6 +4,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication, QWidget
 from PyQt5.QtGui import QPainter, QPen, QColor
 
+
 class ScreenSelector(QWidget):
     def __init__(self):
         super().__init__()
@@ -70,15 +71,22 @@ class ScreenSelector(QWidget):
             return
 
         try:
+            # 获取屏幕缩放比例
+            screen_ratio = QApplication.primaryScreen().devicePixelRatio()
+            rect = QtCore.QRect(
+                rect.left() * screen_ratio,
+                rect.top() * screen_ratio,
+                rect.width() * screen_ratio,
+                rect.height() * screen_ratio
+            )
+
             with mss.mss() as sct:
-                print("已框选")
                 monitor = {
                     "top": rect.top(),
                     "left": rect.left(),
                     "width": rect.width(),
                     "height": rect.height()
                 }
-                print(f"Monitor: {monitor}")  # 打印监视区域以调试
                 screenshot = sct.grab(monitor)
                 img = QtGui.QImage(screenshot.rgb, screenshot.width, screenshot.height, QtGui.QImage.Format_RGB888)
 
@@ -96,6 +104,7 @@ def main():
     selector = ScreenSelector()
     selector.show()
     sys.exit(app.exec_())
+
 
 if __name__ == '__main__':
     main()
