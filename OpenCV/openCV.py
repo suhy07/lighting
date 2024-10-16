@@ -9,6 +9,7 @@ class ScreenSelector(QWidget):
     def __init__(self):
         super().__init__()
         self.selection_start = None
+        self.selection_end = None
         self.selection_rect = None
         self.initUI()
 
@@ -16,8 +17,7 @@ class ScreenSelector(QWidget):
         self.setMouseTracking(True)
         self.setWindowFlags(QtCore.Qt.WindowStaysOnTopHint)  # Keep window on top
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)  # Transparent background
-        self.setWindowOpacity(0.2)  # Semi-transparent window
-        # self.setGeometry(100, 100, 1300, 1200)  # Initial window size
+        self.setWindowOpacity(0.5)  # Semi-transparent window
         self.setWindowTitle('Select Screen Area')
         self.showFullScreen()  # Make the window full screen
 
@@ -33,58 +33,54 @@ class ScreenSelector(QWidget):
 
     def mouseReleaseEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton and self.selection_rect:
-            self.capture_screen(self.selection_rect)
+            self.selection_end = event.globalPos()  # 记录终点
+            self.update()  # 更新画面，绘制起点和终点
             self.close()
+            self.capture_screen(self.selection_rect)  # 调用截图函数
 
     def paintEvent(self, event):
-        # 清除之前的绘制
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # 只绘制矩形边框
+        # 绘制矩形边框
         if self.selection_rect:
             painter.setPen(QPen(QColor(255, 0, 0), 5, QtCore.Qt.SolidLine))
             painter.drawRect(self.selection_rect.normalized())
 
-        # 让其他区域保持原样
+        # 绘制起点
+        if self.selection_start:
+            painter.setPen(QPen(QColor(0, 255, 0), 10, QtCore.Qt.SolidLine))  # 绿色点
+            painter.drawPoint(self.selection_start)
+
+        # 绘制终点
+        if self.selection_end:
+            painter.setPen(QPen(QColor(0, 0, 255), 10, QtCore.Qt.SolidLine))  # 蓝色点
+            painter.drawPoint(self.selection_end)
+
         painter.end()
 
-    # def capture_screen(self, rect):
-    #     with mss.mss() as sct:
-    #         monitor = {"top": rect.top(), "left": rect.left(), "width": rect.width(), "height": rect.height()}
-    #         screenshot = sct.grab(monitor)
-    #         img = QtGui.QImage(screenshot.rgb, screenshot.width, screenshot.height, QtGui.QImage.Format_RGB32)
-    #         screenshot_path = "screenshot.png"
-    #         QtGui.QImageWriter(screenshot_path, "png").write(img)
-    #         print(f"Screenshot saved to {screenshot_path}")
-
     def capture_screen(self, rect):
-        print(rect)
+        """Capture the selected screen area and save as a PNG file."""
         if rect.isNull() or rect.width() == 0 or rect.height() == 0:
             print("选择的矩形无效。")
             return
 
         try:
-            # 直接使用原始 rect 值
+            # 使用原始 rect 值
             monitor = {
-                # "top": int(rect.top()),
-                # "left": int(rect.left()),
-                # "width": int(rect.width()),
-                # "height": int(rect.height())
-                "top": 0,
-                "left": 0,
+                "top": int(rect.top()),
+                "left": int(rect.left()),
                 "width": int(rect.width()),
                 "height": int(rect.height())
             }
-            screenshot = mss.mss().grab(monitor)
-            print(screenshot)
-            img = QtGui.QImage(screenshot.rgb, screenshot.width, screenshot.height, QtGui.QImage.Format_RGB888)
 
-            screenshot_path = "screenshot.png"
-            if img.save(screenshot_path, "PNG"):
+            with mss.mss() as sct:
+                screenshot = sct.grab(monitor)
+
+                # Save the screenshot
+                screenshot_path = "screenshot.png"
+                mss.tools.to_png(screenshot.rgb, screenshot.size, output=screenshot_path)
                 print(f"截图已保存到 {screenshot_path}")
-            else:
-                print("保存截图失败。")
         except Exception as e:
             print(f"发生错误：{e}")
 
