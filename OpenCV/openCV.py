@@ -43,7 +43,7 @@ class ScreenSelector(QWidget):
 
         # 只绘制矩形边框
         if self.selection_rect:
-            painter.setPen(QPen(QColor(255, 0, 0), 2, QtCore.Qt.SolidLine))
+            painter.setPen(QPen(QColor(255, 0, 0), 5, QtCore.Qt.SolidLine))
             painter.drawRect(self.selection_rect.normalized())
 
         # 让其他区域保持原样
@@ -59,42 +59,32 @@ class ScreenSelector(QWidget):
     #         print(f"Screenshot saved to {screenshot_path}")
 
     def capture_screen(self, rect):
+        print(rect)
         if rect.isNull() or rect.width() == 0 or rect.height() == 0:
             print("选择的矩形无效。")
             return
 
-        # 限制区域大小
-        max_width = 1920
-        max_height = 1080
-        if rect.width() > max_width or rect.height() > max_height:
-            print("选择区域过大，请重新选择。")
-            return
-
         try:
-            # 获取屏幕缩放比例
-            screen_ratio = QApplication.primaryScreen().devicePixelRatio()
-            rect = QtCore.QRect(
-                rect.left() * screen_ratio,
-                rect.top() * screen_ratio,
-                rect.width() * screen_ratio,
-                rect.height() * screen_ratio
-            )
+            # 直接使用原始 rect 值
+            monitor = {
+                # "top": int(rect.top()),
+                # "left": int(rect.left()),
+                # "width": int(rect.width()),
+                # "height": int(rect.height())
+                "top": 0,
+                "left": 0,
+                "width": int(rect.width()),
+                "height": int(rect.height())
+            }
+            screenshot = mss.mss().grab(monitor)
+            print(screenshot)
+            img = QtGui.QImage(screenshot.rgb, screenshot.width, screenshot.height, QtGui.QImage.Format_RGB888)
 
-            with mss.mss() as sct:
-                monitor = {
-                    "top": rect.top(),
-                    "left": rect.left(),
-                    "width": rect.width(),
-                    "height": rect.height()
-                }
-                screenshot = sct.grab(monitor)
-                img = QtGui.QImage(screenshot.rgb, screenshot.width, screenshot.height, QtGui.QImage.Format_RGB888)
-
-                screenshot_path = "screenshot.png"
-                if img.save(screenshot_path, "PNG"):
-                    print(f"截图已保存到 {screenshot_path}")
-                else:
-                    print("保存截图失败。")
+            screenshot_path = "screenshot.png"
+            if img.save(screenshot_path, "PNG"):
+                print(f"截图已保存到 {screenshot_path}")
+            else:
+                print("保存截图失败。")
         except Exception as e:
             print(f"发生错误：{e}")
 
