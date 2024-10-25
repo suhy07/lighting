@@ -3,37 +3,39 @@ from torch import nn, optim
 import numpy as np
 import random
 from collections import deque
+from tqdm import tqdm  # 引入进度条库
 
 
 # 定义Actor网络
 class Actor(nn.Module):
-    def __init__(self, input_dim, action_dim, hidden_dim=128):
+    def __init__(self, input_dim, action_dim):
         super(Actor, self).__init__()
-        self.conv1 = nn.Conv1d(input_dim[0], hidden_dim, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, stride=1, padding=1)
-        self.fc1 = nn.Linear(hidden_dim * input_dim[1], hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, action_dim)
+        self.conv1 = nn.Conv1d(input_dim[0], 128, kernel_size=3, stride=1, padding=1)  # 输出通道数为128
+        self.conv2 = nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1)
+        self.fc1 = nn.Linear(128 * input_dim[1], 128)  # 输入维度根据卷积层输出计算
+        self.fc2 = nn.Linear(128, action_dim)
 
     def forward(self, x):
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
-        x = x.view(x.size(0), -1)
+        x = x.view(x.size(0), 128 * x.size(2))  # 保留通道数，并展平长度
+        x = torch.relu(self.fc1(x))
         return torch.softmax(self.fc2(x), dim=-1)
-
 
 # 定义Critic网络
 class Critic(nn.Module):
-    def __init__(self, input_dim, hidden_dim=128):
+    def __init__(self, input_dim):
         super(Critic, self).__init__()
-        self.conv1 = nn.Conv1d(input_dim[0], hidden_dim, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, stride=1, padding=1)
-        self.fc1 = nn.Linear(hidden_dim * input_dim[1], hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, 1)
+        self.conv1 = nn.Conv1d(input_dim[0], 128, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv1d(128, 128, kernel_size=3, stride=1, padding=1)
+        self.fc1 = nn.Linear(128 * input_dim[1], 128)  # 输入维度根据卷积层输出计算
+        self.fc2 = nn.Linear(128, 1)  # 输出状态值
 
     def forward(self, x):
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
-        x = x.view(x.size(0), -1)
+        x = x.view(x.size(0), 128 * x.size(2))  # 保留通道数，并展平长度
+        x = torch.relu(self.fc1(x))
         return self.fc2(x)
 
 
@@ -55,7 +57,7 @@ class ReplayBuffer:
 # 训练函数
 def train(actor, critic, optimizer_actor, optimizer_critic, replay_buffer, num_episodes=1000, gamma=0.99,
           batch_size=64):
-    for episode in range(num_episodes):
+    for episode in tqdm(range(num_episodes), desc="Training Episodes"):
         state = torch.randn(1, 6, 128520)  # 初始化状态
         done = False
         total_reward = 0
