@@ -1,5 +1,9 @@
 import torch
-from torch import nn
+from torch import nn, optim
+import numpy as np
+import random
+from collections import deque
+
 
 # 定义Actor网络
 class Actor(nn.Module):
@@ -13,10 +17,9 @@ class Actor(nn.Module):
     def forward(self, x):
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
-        x = x.view(x.size(0), -1)  # 展平卷积特征图
-        x = torch.relu(self.fc1(x))
-        x = torch.softmax(self.fc2(x), dim=-1)  # 使用softmax获取动作概率
-        return x
+        x = x.view(x.size(0), -1)
+        return torch.softmax(self.fc2(x), dim=-1)
+
 
 # 定义Critic网络
 class Critic(nn.Module):
@@ -25,45 +28,116 @@ class Critic(nn.Module):
         self.conv1 = nn.Conv1d(input_dim[0], hidden_dim, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, stride=1, padding=1)
         self.fc1 = nn.Linear(hidden_dim * input_dim[1], hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, 1)  # 输出状态值
+        self.fc2 = nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
-        x = x.view(x.size(0), -1)  # 展平卷积特征图
-        x = torch.relu(self.fc1(x))
+        x = x.view(x.size(0), -1)
         return self.fc2(x)
 
-# 处理YOLOv5输出的函数
-def process_yolov5_output(yolo_output, num_classes, threshold=0.5):
-    batch_size, num_anchors, num_params = yolo_output.shape
-    assert num_params == (4 + 1 + num_classes), "The number of parameters in the YOLOv5 output must match the expected number of parameters."
 
-    bbox_xywh = yolo_output[:, :, :4]
-    class_probs = torch.softmax(yolo_output[:, :, 5:], dim=2)
-    class_scores, class_labels = torch.max(class_probs, dim=2)
+# 经验回放类
+class ReplayBuffer:
+    def __init__(self, max_size):
+        self.buffer = deque(maxlen=max_size)
 
-    class_labels[class_scores < threshold] = -1  # 应用阈值
+    def add(self, experience):
+        self.buffer.append(experience)
 
-    features = torch.cat([bbox_xywh, class_labels.unsqueeze(2), class_scores.unsqueeze(2)], dim=2)
-    features = features.view(batch_size, 6, -1)  # 6个特征
+    def sample(self, batch_size):
+        return random.sample(self.buffer, batch_size)
 
-    return features
+    def size(self):
+        return len(self.buffer)
+
+
+# 训练函数
+def train(actor, critic, optimizer_actor, optimizer_critic, replay_buffer, num_episodes=1000, gamma=0.99,
+          batch_size=64):
+    for episode in range(num_episodes):
+        state = torch.randn(1, 6, 128520)  # 初始化状态
+        done = False
+        total_reward = 0
+
+        while not done:
+            action_probs = actor(state)
+            action = np.random.choice(len(action_probs[0]), p=action_probs.detach().numpy()[0])
+
+            # 模拟奖励和下一个状态
+            reward = random.uniform(-1, 1)
+            next_state = torch.randn(1, 6, 128520)  # 示例下一个状态
+            done = random.random() < 0.1  # 随机结束条件
+
+            total_reward += reward
+
+            # 保存经验
+            replay_buffer.add((state, action, reward, next_state, done))
+            state = next_state
+
+            # 更新网络
+            if replay_buffer.size() > batch_size:
+                # 从经验回放中采样
+                experiences = replay_buffer.sample(batch_size)
+                states, actions, rewards, next_states, dones = zip(*experiences)
+
+                states = torch.cat(states)
+                next_states = torch.cat(next_states)
+                rewards = torch.tensor(rewards, dtype=torch.float32).unsqueeze(1)
+                dones = torch.tensor(dones, dtype=torch.float32).unsqueeze(1)
+
+                # 计算Critic的目标
+                target = rewards + (1 - dones) * gamma * critic(next_states)
+                values = critic(states)
+
+                # 更新Critic
+                critic_loss = nn.MSELoss()(values, target.detach())
+                optimizer_critic.zero_grad()
+                critic_loss.backward()
+                optimizer_critic.step()
+
+                # 更新Actor
+                advantage = target - values.detach()
+                actor_loss = -torch.log(action_probs[0][action]) * advantage
+                optimizer_actor.zero_grad()
+                actor_loss.backward()
+                optimizer_actor.step()
+
+        if episode % 100 == 0:
+            print(f"Episode {episode}, Total Reward: {total_reward:.2f}")
+
+
+# 保存模型参数
+def save_model(actor, critic, actor_path='actor.pth', critic_path='critic.pth'):
+    torch.save(actor.state_dict(), actor_path)
+    torch.save(critic.state_dict(), critic_path)
+    print("模型参数已保存。")
+
+
+# 加载模型参数
+def load_model(actor, critic, actor_path='actor.pth', critic_path='critic.pth'):
+    actor.load_state_dict(torch.load(actor_path))
+    critic.load_state_dict(torch.load(critic_path))
+    print("模型参数已加载。")
+
 
 # 主程序
 if __name__ == "__main__":
-    yolo_output = torch.randn(1, 128520, 15)  # 示例输出
-    num_classes = 10
-    features = process_yolov5_output(yolo_output, num_classes)
+    state_dim = (6, 128520)
+    action_dim = 4
 
-    state_dim = (6, 128520)  # 特征图的尺寸
-    # features = features.permute(0, 2, 1)  # 转换为 (batch_size, num_features, num_anchors)
-
-    actor = Actor(input_dim=state_dim, action_dim=4)
+    actor = Actor(input_dim=state_dim, action_dim=action_dim)
     critic = Critic(input_dim=state_dim)
 
-    action_probs = actor(features)
-    state_value = critic(features)
+    optimizer_actor = optim.Adam(actor.parameters(), lr=0.001)
+    optimizer_critic = optim.Adam(critic.parameters(), lr=0.001)
 
-    print("动作概率:", action_probs)
-    print("状态值:", state_value)
+    replay_buffer = ReplayBuffer(max_size=10000)
+
+    train(actor, critic, optimizer_actor, optimizer_critic, replay_buffer, num_episodes=1000)
+
+    # 保存模型参数
+    save_model(actor, critic)
+
+    # 加载模型参数（如果需要）
+    # load_model(actor, critic)
