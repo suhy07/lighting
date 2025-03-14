@@ -36,7 +36,8 @@ class Critic(nn.Module):
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
         x = x.view(x.size(0), 32 * x.size(2))
-        return self.fc2(x)
+        x = self.fc2(x)
+        return x
 
 
 # Experience replay class

@@ -2,8 +2,8 @@ import numpy as np
 import torch
 import torch.optim as optim
 
-from lab.lighting.DQN.DQN import DQN
-from lab.lighting.DQN.ReplayBuffer import ReplayBuffer
+from DQN import DQN
+from ReplayBuffer import ReplayBuffer
 
 
 class DQNAgent:

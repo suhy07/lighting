@@ -78,7 +78,7 @@ class ScreenSelector(QWidget):
 
                 # Adjust the size of the screenshot
                 img = Image.open(screenshot_path)
-                img = img.resize((1920, 1080), Image.ANTIALIAS)
+                img = img.resize((1920, 1080), Image.Resampling.LANCZOS)
                 img.save(screenshot_path)
 
                 print(f"截图已保存并调整大小到 {screenshot_path}")
