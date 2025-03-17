@@ -54,16 +54,25 @@ class ThunderGameEnv:
             return self.get_state(), 0, True
         
         # 处理动作
-        # 0: 左移, 1: 右移, 2: 发射子弹, 3: 不动
-        if action == 0:  # 左移
-            self.player_pos[0] = max(0, self.player_pos[0] - self.player_speed)
-        elif action == 1:  # 右移
-            self.player_pos[0] = min(self.width - self.player_width, self.player_pos[0] + self.player_speed)
-        elif action == 2:  # 发射子弹
-            if len(self.bullets) < self.max_bullets:
-                bullet_pos = np.array([self.player_pos[0] + self.player_width/2 - self.bullet_width/2,
-                                      self.player_pos[1]])
-                self.bullets.append(bullet_pos)
+        # action: [0-7]表示8个方向，分别为：上、右上、右、右下、下、左下、左、左上
+        # 自动持续射击
+        if len(self.bullets) < self.max_bullets:
+            bullet_pos = np.array([self.player_pos[0] + self.player_width/2 - self.bullet_width/2,
+                                  self.player_pos[1]])
+            self.bullets.append(bullet_pos)
+        
+        # 根据动作移动飞机
+        if action < 8:  # 8个方向的移动
+            angle = action * np.pi / 4  # 将动作转换为角度
+            dx = self.player_speed * np.sin(angle)
+            dy = -self.player_speed * np.cos(angle)  # 负号是因为y轴向下为正
+            
+            # 更新位置并确保在游戏区域内
+            new_x = self.player_pos[0] + dx
+            new_y = self.player_pos[1] + dy
+            
+            self.player_pos[0] = np.clip(new_x, 0, self.width - self.player_width)
+            self.player_pos[1] = np.clip(new_y, 0, self.height - self.player_height)
         
         # 更新子弹位置
         new_bullets = []
@@ -74,13 +83,15 @@ class ThunderGameEnv:
         self.bullets = new_bullets
         
         # 更新敌机位置
-        for enemy in self.enemies[::]:
-            enemy[1] += self.enemy_speed
-            if enemy[1] > self.height:
-                if any(np.array_equal(enemy, e) for e in self.enemies):
-                    self.enemies.remove(enemy)
-                    self.spawn_enemy()
-                    self.score -= 1  # 敌机逃脱扣分
+        i = 0
+        while i < len(self.enemies):
+            self.enemies[i][1] += self.enemy_speed
+            if self.enemies[i][1] > self.height:
+                self.enemies.pop(i)
+                self.spawn_enemy()
+                self.score -= 1  # 敌机逃脱扣分
+            else:
+                i += 1
         
         # 检测子弹与敌机的碰撞
         new_bullets = []
