@@ -1,0 +1,49 @@
+# 游戏基本配置
+
+# 玩家配置
+PLAYER_SYMBOL = '^'
+PLAYER_SHOOT_DELAY = 0.2
+
+# 敌人配置
+ENEMY_SYMBOL = 'V'
+ENEMY_MOVE_DELAY = 0.5
+ENEMY_SPAWN_DELAY = 2.0
+
+# Boss配置
+BOSS_SYMBOL = 'Boss'
+BOSS_MOVE_DELAY = 0.3
+BOSS_MIN_HEALTH = 80  # Boss最小血量
+BOSS_MAX_HEALTH = 150  # Boss最大血量
+BOSS_SCORE_THRESHOLD = 1500
+
+# 子弹配置
+BULLET_SYMBOL = '|'
+
+# 得分配置
+ENEMY_SCORE = 10
+BOSS_SCORE = 1000
+
+# 水晶配置
+CRYSTAL_SYMBOL = '*'
+CRYSTAL_ATTRACT_RANGE = 25  # 水晶吸附范围
+CRYSTAL_SCORE = 1  # 每个水晶的得分
+CRYSTAL_SPEED = 0.3  # 水晶移动速度
+CRYSTAL_COUNT = 5  # 敌人死亡时产生的水晶数量
+CRYSTAL_INITIAL_SPEED = 0.5  # 水晶初始散开速度
+
+# 道具配置
+ITEM_DROP_RATE = 0.2  # 道具掉落概率
+ITEM_ATTRACT_RANGE = CRYSTAL_ATTRACT_RANGE  # 道具吸附范围
+ITEM_SPEED = CRYSTAL_SPEED  # 道具移动速度
+ITEM_INITIAL_SPEED = CRYSTAL_INITIAL_SPEED  # 道具初始散开速度
+
+# 道具类型和分值
+SHIELD_SYMBOL = 'O'  # 护盾道具符号
+SHIELD_SCORE = 30  # 护盾道具分值
+UPGRADE_SYMBOL = 'U'  # 升级道具符号
+UPGRADE_SCORE = 20  # 升级道具分值
+SPECIAL_SYMBOL = 'S'  # S道具符号
+SPECIAL_SCORE = 50  # S道具分值
+
+# 游戏更新延迟
+GAME_UPDATE_DELAY = 0.05

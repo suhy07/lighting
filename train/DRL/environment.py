@@ -1,23 +1,91 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+
 import numpy as np
 from typing import Tuple, Dict, Any
-from game.thunder_game import ThunderGame
-from game.player import Player
-from game.enemy import Enemy, Boss
+from thunder_game import ThunderGame
 
 class ThunderGameEnv:
     def __init__(self):
         self.game = None
+        self.show_ui = False
+        self.ui_game = None
+        self.ui_process = None
         self.reset()
 
+    def render(self, episode=None, epsilon=None, reward=None):
+        # UI在单独的窗口中渲染，这里不需要做任何事
+        # 格式化训练状态信息
+        status = []
+        if episode:
+            status.append(f'Episode: {episode}')
+            status.append(f'Epsilon: {epsilon:.3f}')
+            status.append(f'Reward: {reward:.2f}')
+            # 使用ANSI转义序列清除当前行并移动到行首
+            sys.stdout.write('\033[2K\r' + ' | '.join(status))
+            sys.stdout.flush()
     def reset(self) -> np.ndarray:
         """重置环境并返回初始状态"""
         if self.game:
             self.game.cleanup()
+            # 等待一小段时间确保curses正确清理
+            import time
+            time.sleep(0.1)
         self.game = ThunderGame()
+        # 确保游戏状态完全重置
+        self.game.score = 0
+        self.game.enemies.clear()
+        self.game.crystals.clear()
+        self.game.items.clear()
+        self.game.boss = None
+        self.game.game_over = False
+        # 重置时关闭可能存在的旧UI进程
+        if self.ui_process:
+            self.ui_process.terminate()
+            self.ui_process = None
         return self._get_state()
 
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         """执行动作并返回下一个状态、奖励、是否结束和额外信息"""
+        # 检测按键
+        if self.game.screen:
+            key = self.game.screen.getch()
+            if key == ord('s') and not self.show_ui:
+                self.show_ui = True
+                import subprocess
+                import sys
+                import json
+                import tempfile
+                
+                # 创建临时文件来存储游戏状态
+                state_file = tempfile.NamedTemporaryFile(mode='w+', delete=False, suffix='.json')
+                game_state = {
+                    'player': {'x': self.game.player.x, 'y': self.game.player.y},
+                    'enemies': [{'x': e.x, 'y': e.y} for e in self.game.enemies],
+                    'boss': {'x': self.game.boss.x, 'y': self.game.boss.y} if self.game.boss else None,
+                    'crystals': [{'x': c.x, 'y': c.y} for c in self.game.crystals],
+                    'items': [{'x': i.x, 'y': i.y} for i in self.game.items],
+                    'score': self.game.score
+                }
+                json.dump(game_state, state_file)
+                state_file.close()
+                
+                # 在新窗口中启动UI游戏
+                # 使用共享状态文件实时同步
+                cmd = [sys.executable, 'ui_window.py', state_file.name]
+                self.ui_process = subprocess.Popen(
+                    cmd,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE,
+                    env={**os.environ, 'PYTHONPATH': os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))},
+                    cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                )
+            elif key == ord('q') and self.show_ui:
+                if self.ui_process:
+                    self.ui_process.terminate()
+                    self.ui_process = None
+                self.show_ui = False
+
         # 解析动作
         dx, dy = self._decode_action(action)
         
@@ -26,6 +94,8 @@ class ThunderGameEnv:
         
         # 更新游戏状态
         self.game.update()
+        
+        
         
         # 获取新状态
         next_state = self._get_state()
@@ -99,20 +169,24 @@ class ThunderGameEnv:
         
         state.extend(item_positions)
         
+        # 游戏结束时关闭UI进程
+        if self.game.game_over and self.ui_process:
+            self.ui_process.terminate()
+            self.ui_process = None
         return np.array(state, dtype=np.float32)
 
     def _decode_action(self, action: int) -> Tuple[int, int]:
-        """将动作索引解码为移动方向
-        动作空间：
-        0: 不动
-        1: 上
-        2: 右上
-        3: 右
-        4: 右下
-        5: 下
-        6: 左下
-        7: 左
-        8: 左上
+        """Decode action index to movement direction
+        Action space:
+        0: stay
+        1: up
+        2: up-right
+        3: right
+        4: down-right
+        5: down
+        6: down-left
+        7: left
+        8: up-left
         """
         action_map = {
             0: (0, 0),
@@ -136,28 +210,54 @@ class ThunderGameEnv:
         
         # 击败敌人的奖励
         if self.game.score > 0:
-            reward += self.game.score * 0.01
+            reward += self.game.score * 0.02
         
         # 收集水晶和道具的奖励
         for crystal in self.game.crystals:
             if crystal.x == self.game.player.x and crystal.y == self.game.player.y:
-                reward += 1.0
+                reward += 2.0
+            else:
+                # 接近水晶的奖励
+                distance = abs(crystal.x - self.game.player.x) + abs(crystal.y - self.game.player.y)
+                if distance < 5:
+                    reward += 0.2 * (5 - distance)
         
         for item in self.game.items:
             if item.x == self.game.player.x and item.y == self.game.player.y:
-                reward += 2.0
+                reward += 3.0
+            else:
+                # 接近道具的奖励
+                distance = abs(item.x - self.game.player.x) + abs(item.y - self.game.player.y)
+                if distance < 5:
+                    reward += 0.3 * (5 - distance)
         
-        # 击败Boss的额外奖励
-        if self.game.boss and self.game.boss.health <= 0:
-            reward += 10.0
+        # 躲避敌人的奖励
+        for enemy in self.game.enemies:
+            distance = abs(enemy.x - self.game.player.x) + abs(enemy.y - self.game.player.y)
+            if distance < 3:
+                reward -= 0.5 * (3 - distance)
+        
+        # Boss相关奖励
+        if self.game.boss:
+            if self.game.boss.health <= 0:
+                reward += 15.0  # 击败Boss的额外奖励
+            else:
+                # 与Boss保持适当距离的奖励
+                distance = abs(self.game.boss.x - self.game.player.x) + abs(self.game.boss.y - self.game.player.y)
+                if 3 <= distance <= 6:
+                    reward += 0.3
+                elif distance < 2:
+                    reward -= 1.0
         
         # 死亡惩罚
         if self.game.game_over:
-            reward -= 10.0
+            reward -= 15.0
         
         return reward
 
     def close(self):
-        """关闭环境"""
+        """Close environment"""
         if self.game:
             self.game.cleanup()
+        if self.ui_game:
+            self.ui_game.cleanup()

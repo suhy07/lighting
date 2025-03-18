@@ -1,7 +1,7 @@
 import time
 from typing import List
-from game.game_object import GameObject
-from game.config import PLAYER_SYMBOL, PLAYER_SHOOT_DELAY
+from game_object import GameObject
+from config import PLAYER_SYMBOL, PLAYER_SHOOT_DELAY
 
 class Bullet(GameObject):
     def __init__(self, x: int, y: int):

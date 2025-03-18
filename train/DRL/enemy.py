@@ -3,7 +3,7 @@ import random
 import math
 import curses
 from typing import List, Optional
-from game.game_object import GameObject
+from game_object import GameObject
 from config import (ENEMY_SYMBOL, ENEMY_MOVE_DELAY, BOSS_SYMBOL, BOSS_MOVE_DELAY,
                    BOSS_MIN_HEALTH, BOSS_MAX_HEALTH, BULLET_SYMBOL, CRYSTAL_SYMBOL, CRYSTAL_ATTRACT_RANGE,
                    CRYSTAL_SPEED, CRYSTAL_COUNT, CRYSTAL_INITIAL_SPEED, ITEM_DROP_RATE,

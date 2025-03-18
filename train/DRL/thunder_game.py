@@ -2,12 +2,12 @@ import curses
 import random
 import time
 from typing import List
-from game.config import (ENEMY_SPAWN_DELAY, GAME_UPDATE_DELAY, BOSS_SCORE_THRESHOLD,
+from config import (ENEMY_SPAWN_DELAY, GAME_UPDATE_DELAY, BOSS_SCORE_THRESHOLD,
                    ENEMY_SCORE, BOSS_SCORE, CRYSTAL_SCORE, SHIELD_SCORE,
                    UPGRADE_SCORE, SPECIAL_SCORE)
-from game.game_object import GameObject
-from game.player import Player, Bullet
-from game.enemy import Enemy, Boss, Crystal, Item
+from game_object import GameObject
+from player import Player, Bullet
+from enemy import Enemy, Boss, Crystal, Item
 
 class ThunderGame:
     def __init__(self):
@@ -24,7 +24,7 @@ class ThunderGame:
         self.boss: Boss = None
         self.crystals: List[Crystal] = []
         self.items: List[Item] = []
-        self.score = 1490
+        self.score =0
         self.enemy_spawn_delay = 2.0
         self.last_enemy_spawn = 0
         self.game_over = False
